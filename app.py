@@ -57,9 +57,9 @@ st.markdown("""
     --gradient-3: linear-gradient(135deg, #ABEBC6 0%, #D5F4E6 100%);
 }
 /* Remove Streamlit branding and margins */
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
+#MainMenu {visibility: visible;}
+footer {visibility: visible;}
+header {visibility: visible;}
 /* Main container styling */
 .stApp {
     background-color: #F8F9FA;
@@ -390,6 +390,14 @@ hr {
     box-shadow: var(--shadow);
     border-left: 5px solid var(--success-color);
 }
+.faq-panel {
+    background: var(--gradient-2);
+    border-radius: 15px;
+    padding: 20px;
+    margin: 15px 0;
+    box-shadow: var(--shadow);
+    border-left: 5px solid var(--primary-color);
+}
 .sidebar-metric {
     background: var(--gradient-1);
     color: white;
@@ -418,6 +426,28 @@ hr {
     margin: 20px 0;
     box-shadow: var(--shadow);
 }
+
+/* Sidebar collapse button fix */
+.css-1lcbmhc {
+    display: block !important;
+}
+
+/* Ensure sidebar collapse button is always visible */
+div[data-testid="stSidebar"] > div:first-child {
+    display: block !important;
+    visibility: visible !important;
+}
+
+/* Make sure the sidebar collapse button is properly positioned */
+button[aria-label="sidebar"] {
+    display: block !important;
+    visibility: visible !important;
+    position: fixed !important;
+    top: 10px !important;
+    left: 10px !important;
+    z-index: 1000 !important;
+}
+
 @media (max-width: 768px) {
     .quick-actions {
         flex-direction: column;
@@ -814,7 +844,7 @@ def admin_dashboard(user):
         else:
             st.info("No plans available")
     
-    # ---------- SUPPORT TICKETS TAB - Removed add new ticket feature ----------
+    # ---------- SUPPORT TICKETS TAB - Remove resolved tickets ----------
     with tabs[3]:
         st.markdown("### 🎫 Customer Support Tickets")
         
@@ -843,7 +873,7 @@ def admin_dashboard(user):
             
             st.divider()
             
-            # Ticket management - Only update status
+            # Ticket management - Remove resolved tickets
             st.markdown("### 🛠 Ticket Management")
             
             with st.form("update_ticket_form"):
@@ -860,11 +890,18 @@ def admin_dashboard(user):
                     if submitted:
                         ticket_id = int(selected.split(":")[0].replace("ID ", "")) - 1
                         ticket_to_update = all_tickets[ticket_id]
-                        tickets_collection.update_one(
-                            {"_id": ticket_to_update["_id"]},
-                            {"$set": {"Status": new_status}}
-                        )
-                        st.success(f"✅ Ticket status updated!")
+                        
+                        if new_status == "Resolved ✅":
+                            # Delete the ticket from database
+                            tickets_collection.delete_one({"_id": ticket_to_update["_id"]})
+                            st.success(f"✅ Ticket resolved and removed from the system!")
+                        else:
+                            # Update the ticket status
+                            tickets_collection.update_one(
+                                {"_id": ticket_to_update["_id"]},
+                                {"$set": {"Status": new_status}}
+                            )
+                            st.success(f"✅ Ticket status updated!")
                         st.rerun()
     
     # ---------- USERS TAB ----------
@@ -1021,7 +1058,8 @@ def customer_dashboard(user):
         'show_upgrade_options', 'show_downgrade_options', 'show_usage_details',
         'show_notifications', 'show_support', 'usage_data_generated',
         'show_billing_history', 'show_plan_optimizer', 'show_pause_confirmation',
-        'show_cancel_confirmation', 'service_paused', 'subscription_cancelled'
+        'show_cancel_confirmation', 'service_paused', 'subscription_cancelled',
+        'show_faq'
     ]
     for var in session_vars:
         if var not in st.session_state:
@@ -1073,18 +1111,25 @@ def customer_dashboard(user):
     st.markdown('<h1 class="main-header">🌐 ConnectFast Broadband Experience</h1>', unsafe_allow_html=True)
     
     # Quick actions at the top right
-    cols = st.columns([3, 1])
+    cols = st.columns([2, 1])
     with cols[1]:
         st.markdown('<div class="quick-actions">', unsafe_allow_html=True)
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
             if st.button("📞 Support", key="top_support", use_container_width=True):
                 st.session_state.show_support = True
                 st.session_state.show_notifications = False
+                st.session_state.show_faq = False
         with col2:
             notification_count = len(st.session_state.user_data['notifications'])
             if st.button(f"🔔 ({notification_count})", key="top_notifications", use_container_width=True):
                 st.session_state.show_notifications = not st.session_state.show_notifications
+                st.session_state.show_support = False
+                st.session_state.show_faq = False
+        with col3:
+            if st.button("❓ FAQ", key="top_faq", use_container_width=True):
+                st.session_state.show_faq = not st.session_state.show_faq
+                st.session_state.show_notifications = False
                 st.session_state.show_support = False
         st.markdown('</div>', unsafe_allow_html=True)
     
@@ -1140,6 +1185,56 @@ def customer_dashboard(user):
             if st.button("❌ Close", key="close_support", use_container_width=True):
                 st.session_state.show_support = False
                 st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # FAQ panel
+    if st.session_state.show_faq:
+        st.markdown('<div class="faq-panel">', unsafe_allow_html=True)
+        st.markdown("### ❓ Frequently Asked Questions")
+        
+        faqs = [
+            {
+                "question": "What broadband speeds do you offer?",
+                "answer": "We offer a range of speeds from 50 Mbps to 1 Gbps, depending on the plan you choose. Our Basic Plan offers 50 Mbps, Standard Plan offers 100 Mbps, Premium Plan offers 200 Mbps, and Ultra Plan offers 1 Gbps."
+            },
+            {
+                "question": "Is there a data limit on your plans?",
+                "answer": "Our Basic and Standard plans have data limits of 100GB and 200GB respectively. Our Premium and Ultra plans offer unlimited data usage."
+            },
+            {
+                "question": "How long does installation take?",
+                "answer": "Standard installation typically takes 2-4 hours. Our technician will arrive at your scheduled time and complete the setup including modem configuration and connection testing."
+            },
+            {
+                "question": "Do you offer a satisfaction guarantee?",
+                "answer": "Yes! We offer a 30-day money-back guarantee. If you're not satisfied with our service within the first 30 days, we'll refund your installation fee and first month's payment."
+            },
+            {
+                "question": "What happens if I move to a new address?",
+                "answer": "We provide free relocation service within our coverage area. Just contact us at least 7 days before your move, and we'll transfer your service to your new address."
+            },
+            {
+                "question": "How can I upgrade or downgrade my plan?",
+                "answer": "You can upgrade or downgrade your plan at any time through your customer dashboard. Changes take effect immediately, and any prorated amounts will be reflected in your next bill."
+            },
+            {
+                "question": "Do you provide customer support 24/7?",
+                "answer": "Yes, our customer support team is available 24/7 via phone, email, and live chat. Technical support is available 24/7 for urgent issues."
+            },
+            {
+                "question": "What equipment do I need?",
+                "answer": "We provide a modem and router as part of your installation. You don't need to purchase any additional equipment unless you want to use your own compatible devices."
+            }
+        ]
+        
+        for i, faq in enumerate(faqs):
+            with st.expander(f"Q{i+1}: {faq['question']}", expanded=False):
+                st.markdown(f"**A:** {faq['answer']}")
+        
+        if st.button("❌ Close FAQ", key="close_faq", use_container_width=True):
+            st.session_state.show_faq = False
+            st.rerun()
+        
         st.markdown('</div>', unsafe_allow_html=True)
     
     # User info sidebar - Removed profile section
