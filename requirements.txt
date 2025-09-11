@@ -1,0 +1,7 @@
+streamlit
+pymongo
+pandas
+plotly
+numpy
+python-dateuti
+pytz
