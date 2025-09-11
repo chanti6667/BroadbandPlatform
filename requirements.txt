@@ -3,5 +3,5 @@ pymongo
 pandas
 plotly
 numpy
-python-dateuti
+python-dateutil
 pytz
