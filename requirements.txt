@@ -5,4 +5,4 @@ plotly
 numpy
 python-dateutil
 pytz
-sklearn
+scikit-learn
